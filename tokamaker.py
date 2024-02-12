@@ -1,26 +1,59 @@
-import sys
-import os
 import math
-import numpy as np
 import gmsh
 
-gmsh.initialize(sys.argv)
+# Tokamak "database" provides parameters for some tokamaks (taken from https://en.wikipedia.org/wiki/List_of_fusion_experiments).
+tokamak_database = [
+    #Name           major/minor radii
+    ["JET",             2.96, 0.96],
+    ["DIII-D",          1.67, 0.67],
+    ["Alcator C-Mod",   0.68, 0.22],
+    ["NSTX",            0.85, 0.68],
+    ["ITER",            6.20, 2.00],
+    ["SPARC",           1.85, 0.57]
+]
+
+r_major     = 0
+r_minor     = 0
+e_size      = 0
+mesh_name   = ""
+
+# Get tokamak parameters
+print("===== Tokamaker v1.0.0 =====")
+print("Specify tokamak parameters:")
+print("\t0: Custom")
+for i in range(0, len(tokamak_database)):
+    print(f"\t{i + 1}: {tokamak_database[i][0]}")
+tokamak_choice = int(input())
+if tokamak_choice == 0:
+    r_major     = float(input("\tInput major radius in meters: "))
+    r_minor     = float(input("\tInput minor radius in meters: "))
+else:
+    r_major = tokamak_database[tokamak_choice - 1][1]
+    r_minor = tokamak_database[tokamak_choice - 1][2]
+
+# Get mesh paramaters
+print("Specify mesh paramaters:")
+e_size      = float(input("\tInput element size: "))
+mesh_name   = str(input("\tInput mesh name: "))
+
+# Output all parameters
+print("Parameters")
+print(f"\tMajor radius:\t{r_major}")
+print(f"\tMinor radius:\t{r_minor}")
+print(f"\Element size:\t{e_size}")
+print(f"\Mesh name:\t{mesh_name}")
+
+# Setup gmsh
+gmsh.initialize()
 gmsh.logger.start()
 gmsh.option.set_number("Mesh.Algorithm", 6)
 gmsh.option.set_number("Mesh.Algorithm3D", 1)
 gmsh.option.set_number("Mesh.RecombinationAlgorithm", 1)
-#gmsh.option.set_number("Mesh.RecombineAll", 1)
 gmsh.option.set_number("Mesh.SubdivisionAlgorithm", 2)
 gmsh.option.set_number("Mesh.ElementOrder", 2)
 gmsh.option.set_number("Mesh.MshFileVersion", 2.0)
 gmsh.option.set_number("Mesh.Binary", 1)
 gmsh.model.add("tokamak")
-
-# Input parameters
-r_major     = float(input("Input major radius in meters: "))
-r_minor     = float(input("Input minor radius in meters: "))
-e_size      = float(input("Input element size: "))
-mesh_name   = str(input("Input mesh name: "))
 
 # Generate points
 p_top       = gmsh.model.geo.add_point(r_major, 0, r_minor, e_size)
@@ -70,16 +103,11 @@ gmsh.model.set_physical_name(2, g_wall, "Wall")
 g_tokamak   = gmsh.model.geo.add_physical_group(3, [v_tokamak])
 gmsh.model.set_physical_name(2, g_wall, "Tokamak")
 
-# Write the file
+# Generate mesh
 gmsh.model.geo.synchronize()
 gmsh.model.mesh.generate()
+
+# Write the file and visualize
 gmsh.write(f"{mesh_name}.msh")
-
-if '-nopopup' not in sys.argv:
-    gmsh.fltk.run()
-
-# Inspect the log
-log = gmsh.logger.get()
-print("Logger has recorded " + str(len(log)) + " lines")
-gmsh.logger.stop()
+gmsh.fltk.run()
 gmsh.finalize()
